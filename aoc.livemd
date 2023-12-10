@@ -1,0 +1,233 @@
+# AoC 2023
+
+```elixir
+Mix.install([
+  {:flow, "~> 1.2"}
+])
+```
+
+## Day 1: Trebuchet?!
+
+Something is wrong with global snow production, and you've been selected to take a look. The Elves have even given you a map; on it, they've used stars to mark the top fifty locations that are likely to be having problems.
+
+You've been doing this long enough to know that to restore snow operations, you need to check all fifty stars by December 25th.
+
+Collect stars by solving puzzles. Two puzzles will be made available on each day in the Advent calendar; the second puzzle is unlocked when you complete the first. Each puzzle grants one star. Good luck!
+
+You try to ask why they can't just use a weather machine ("not powerful enough") and where they're even sending you ("the sky") and why your map looks mostly blank ("you sure ask a lot of questions") and hang on did you just say the sky ("of course, where do you think snow comes from") when you realize that the Elves are already loading you into a trebuchet ("please hold still, we need to strap you in").
+
+As they're making the final adjustments, they discover that their calibration document (your puzzle input) has been amended by a very young Elf who was apparently just excited to show off her art skills. Consequently, the Elves are having trouble reading the values on the document.
+
+The newly-improved calibration document consists of lines of text; each line originally contained a specific calibration value that the Elves now need to recover. On each line, the calibration value can be found by combining the first digit and the last digit (in that order) to form a single two-digit number.
+
+For example:
+
+```
+1abc2
+pqr3stu8vwx
+a1b2c3d4e5f
+treb7uchet
+```
+
+In this example, the calibration values of these four lines are 12, 38, 15, and 77. Adding these together produces 142.
+
+Consider your entire calibration document. What is the sum of all of the calibration values?
+
+### Part 2
+
+Your calculation isn't quite right. It looks like some of the digits are actually spelled out with letters: one, two, three, four, five, six, seven, eight, and nine also count as valid "digits".
+
+Equipped with this new information, you now need to find the real first and last digit on each line. For example:
+
+```
+two1nine
+eightwothree
+abcone2threexyz
+xtwone3four
+4nineeightseven2
+zoneight234
+7pqrstsixteen
+```
+
+In this example, the calibration values are 29, 83, 13, 24, 42, 14, and 76. Adding these together produces 281.
+
+What is the sum of all of the calibration values?
+
+```elixir
+defmodule Helper do
+  def filepath(filename) do
+    cwd = Path.dirname(__ENV__.file)
+    Path.join(cwd, filename)
+  end
+end
+
+defmodule Day1 do
+  import Helper
+
+  @digit_regex ~r/[0-9]/
+  @digit_with_literal_regex ~r/(?=(one|two|three|four|five|six|seven|eight|nine|[0-9]))/
+
+  defp to_integer(num_str) do
+    case num_str do
+      x when x == "one" or x == "1" -> 1
+      x when x == "two" or x == "2" -> 2
+      x when x == "three" or x == "3" -> 3
+      x when x == "four" or x == "4" -> 4
+      x when x == "five" or x == "5" -> 5
+      x when x == "six" or x == "6" -> 6
+      x when x == "seven" or x == "7" -> 7
+      x when x == "eight" or x == "8" -> 8
+      x when x == "nine" or x == "9" -> 9
+      _ -> :error
+    end
+  end
+
+  defp find_num(text, regex) do
+    matches = Regex.scan(regex, text)
+    first = matches |> Enum.at(0) |> Enum.at(-1)
+    last = matches |> Enum.at(-1) |> Enum.at(-1)
+    {to_integer(first), to_integer(last)}
+  end
+
+  defp perform(filepath, num_finder) do
+    File.stream!(filepath)
+    |> Flow.from_enumerable()
+    |> Flow.partition()
+    |> Flow.map(num_finder)
+    |> Enum.reduce(0, fn {first, last}, acc -> acc + first * 10 + last end)
+  end
+
+  def part1() do
+    num_finder = &find_num(&1, @digit_regex)
+    perform(filepath("day1.txt"), num_finder)
+  end
+
+  def part2() do
+    num_finder = &find_num(&1, @digit_with_literal_regex)
+    perform(filepath("day1.txt"), num_finder)
+  end
+end
+
+{time, result} = :timer.tc(&Day1.part1/0)
+IO.puts("Result: #{result}")
+IO.puts("Execution time: #{time} microseconds")
+
+{time, result} = :timer.tc(&Day1.part2/0)
+IO.puts("Result: #{result}")
+IO.puts("Execution time: #{time} microseconds")
+```
+
+## Day 2: Cube Conundrum
+
+You're launched high into the atmosphere! The apex of your trajectory just barely reaches the surface of a large island floating in the sky. You gently land in a fluffy pile of leaves. It's quite cold, but you don't see much snow. An Elf runs over to greet you.
+
+The Elf explains that you've arrived at Snow Island and apologizes for the lack of snow. He'll be happy to explain the situation, but it's a bit of a walk, so you have some time. They don't get many visitors up here; would you like to play a game in the meantime?
+
+As you walk, the Elf shows you a small bag and some cubes which are either red, green, or blue. Each time you play this game, he will hide a secret number of cubes of each color in the bag, and your goal is to figure out information about the number of cubes.
+
+To get information, once a bag has been loaded with cubes, the Elf will reach into the bag, grab a handful of random cubes, show them to you, and then put them back in the bag. He'll do this a few times per game.
+
+You play several games and record the information from each game (your puzzle input). Each game is listed with its ID number (like the 11 in Game 11: ...) followed by a semicolon-separated list of subsets of cubes that were revealed from the bag (like 3 red, 5 green, 4 blue).
+
+For example, the record of a few games might look like this:
+
+```
+Game 1: 3 blue, 4 red; 1 red, 2 green, 6 blue; 2 green
+Game 2: 1 blue, 2 green; 3 green, 4 blue, 1 red; 1 green, 1 blue
+Game 3: 8 green, 6 blue, 20 red; 5 blue, 4 red, 13 green; 5 green, 1 red
+Game 4: 1 green, 3 red, 6 blue; 3 green, 6 red; 3 green, 15 blue, 14 red
+Game 5: 6 red, 1 blue, 3 green; 2 blue, 1 red, 2 green
+```
+
+In game 1, three sets of cubes are revealed from the bag (and then put back again). The first set is 3 blue cubes and 4 red cubes; the second set is 1 red cube, 2 green cubes, and 6 blue cubes; the third set is only 2 green cubes.
+
+The Elf would first like to know which games would have been possible if the bag contained only 12 red cubes, 13 green cubes, and 14 blue cubes?
+
+In the example above, games 1, 2, and 5 would have been possible if the bag had been loaded with that configuration. However, game 3 would have been impossible because at one point the Elf showed you 20 red cubes at once; similarly, game 4 would also have been impossible because the Elf showed you 15 blue cubes at once. If you add up the IDs of the games that would have been possible, you get 8.
+
+Determine which games would have been possible if the bag had been loaded with only 12 red cubes, 13 green cubes, and 14 blue cubes. What is the sum of the IDs of those games?
+
+```elixir
+defmodule Day2 do
+  import Helper
+
+  @red_limit 12
+  @green_limit 13
+  @blue_limit 14
+
+  defp stats_parser(stats) do
+    Regex.scan(~r/\d+ red|\d+ green|\d+ blue/, stats)
+  end
+
+  defp impossible?(stats) do
+    Enum.any?(stats, fn [stat] ->
+      [str_count, color] = String.split(stat, " ")
+      {count, _} = Integer.parse(str_count)
+
+      case color do
+        "red" -> count > @red_limit
+        "blue" -> count > @blue_limit
+        "green" -> count > @green_limit
+      end
+    end)
+  end
+
+  defp max_stats(stats) do
+    # accumulator is a list for max value of each color: r, g ,b
+    Enum.reduce(stats, %{r: 0, g: 0, b: 0}, fn [stat], acc ->
+      [str_count, color] = String.split(stat, " ")
+      {count, _} = Integer.parse(str_count)
+
+      case color do
+        c when c == "red" and acc.r < count -> Map.put(acc, :r, count)
+        c when c == "blue" and acc.b < count -> Map.put(acc, :b, count)
+        c when c == "green" and acc.g < count -> Map.put(acc, :g, count)
+        _ -> acc
+      end
+    end)
+  end
+
+  def part1() do
+    File.stream!(filepath(~c"day2_part1.txt"))
+    |> Flow.from_enumerable()
+    |> Flow.partition()
+    |> Flow.map(fn line ->
+      ["Game " <> game_id, game_stats] = String.split(line, ":")
+
+      if game_stats |> stats_parser |> impossible? do
+        ""
+      else
+        game_id
+      end
+    end)
+    |> Flow.filter(fn game_id -> game_id != "" end)
+    |> Flow.map(fn game_id ->
+      {count, _} = Integer.parse(game_id)
+      count
+    end)
+    |> Enum.sum()
+  end
+
+  def part2() do
+    File.stream!(filepath(~c"day2_part1.txt"))
+    |> Flow.from_enumerable()
+    |> Flow.partition()
+    |> Flow.map(fn line ->
+      [_, game_stats] = String.split(line, ":")
+
+      game_stats |> stats_parser |> max_stats
+    end)
+    |> Enum.reduce(0, fn max, acc ->
+      acc + max.r * max.g * max.b
+    end)
+  end
+end
+
+{time, result} = :timer.tc(&Day2.part1/0)
+IO.puts("Result: #{result}")
+IO.puts("Execution time: #{time} microseconds")
+
+{time, result} = :timer.tc(&Day2.part2/0)
+IO.puts("Result: #{result}")
+IO.puts("Execution time: #{time} microseconds")
+```
